@@ -1,0 +1,189 @@
+name: Build Cross-Platform Executables
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # macOS Intel (x86_64)
+          - os: macos-13
+            python-version: '3.11'
+            artifact_name: BreezASR-macOS-Intel
+            arch: x86_64
+            
+          # macOS Apple Silicon (ARM64)
+          - os: macos-14
+            python-version: '3.11'
+            artifact_name: BreezASR-macOS-ARM64
+            arch: arm64
+            
+          # Windows x64
+          - os: windows-latest
+            python-version: '3.11'
+            artifact_name: BreezASR-Windows
+            arch: x64
+
+    runs-on: ${{ matrix.os }}
+    name: Build for ${{ matrix.artifact_name }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+
+      - name: Install dependencies
+        run: |
+          uv sync
+          uv pip install pyinstaller
+
+      - name: Verify installation
+        run: |
+          uv run python -c "import torch, transformers, customtkinter; print('✓ All dependencies installed')"
+
+      # ===== macOS 構建 =====
+      - name: Build macOS .app bundle
+        if: runner.os == 'macOS'
+        run: |
+          uv run pyinstaller \
+            --name "BreezASR" \
+            --windowed \
+            --onedir \
+            --icon=icon.icns \
+            --hidden-import=torch \
+            --hidden-import=torchaudio \
+            --hidden-import=transformers \
+            --hidden-import=customtkinter \
+            --hidden-import=huggingface_hub \
+            --collect-all customtkinter \
+            --collect-submodules torch \
+            --add-data "transcribe.py:." \
+            --osx-bundle-identifier "com.github.xinhonglin.breezasr" \
+            --noconfirm \
+            gui.py
+
+      - name: Verify macOS build
+        if: runner.os == 'macOS'
+        run: |
+          ls -lh dist/
+          echo "📦 BreezASR.app 已生成"
+          du -sh dist/BreezASR.app
+
+      - name: Package macOS app
+        if: runner.os == 'macOS'
+        run: |
+          cd dist
+          zip -r "../BreezASR-${{ matrix.artifact_name }}.zip" BreezASR.app
+          cd ..
+          ls -lh BreezASR-*.zip
+
+      # ===== Windows 構建 =====
+      - name: Build Windows executable
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          uv run pyinstaller `
+            --name "BreezASR" `
+            --windowed `
+            --onedir `
+            --icon=icon.ico `
+            --hidden-import=torch `
+            --hidden-import=torchaudio `
+            --hidden-import=transformers `
+            --hidden-import=customtkinter `
+            --hidden-import=huggingface_hub `
+            --collect-all customtkinter `
+            --collect-submodules torch `
+            --add-data "transcribe.py;." `
+            --noconfirm `
+            gui.py
+
+      - name: Verify Windows build
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Get-ChildItem dist\ -Recurse | Select-Object Name, Length
+          Write-Host "📦 BreezASR.exe 已生成"
+
+      - name: Package Windows app
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist\BreezASR -DestinationPath "BreezASR-${{ matrix.artifact_name }}.zip" -CompressionLevel Optimal
+          Get-Item *.zip
+
+      # ===== 上傳產物 =====
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: BreezASR-${{ matrix.artifact_name }}.zip
+          retention-days: 30
+          compression-level: 0  # 已經是 zip，不需要再壓縮
+
+      # ===== 發布 Release =====
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: BreezASR-${{ matrix.artifact_name }}.zip
+          draft: false
+          prerelease: false
+          body: |
+            # 🎙️ Breez ASR Transcriber ${{ github.ref_name }}
+            
+            ## 📥 下載說明
+            
+            - **macOS Intel**: 適用於 Intel 晶片 Mac (x86_64)
+            - **macOS ARM64**: 適用於 Apple Silicon Mac (M1/M2/M3/M4)
+            - **Windows**: 適用於 Windows 10/11 (64-bit)
+            
+            ## 🚀 安裝步驟
+            
+            ### macOS
+            1. 下載對應版本的 `.zip` 檔案
+            2. 解壓縮後將 `BreezASR.app` 拖曳到「應用程式」資料夾
+            3. 首次開啟時，右鍵點擊選擇「打開」（繞過 Gatekeeper）
+            4. 首次執行會自動下載語言模型（約 1.5GB，需數分鐘）
+            
+            ### Windows
+            1. 下載 Windows 版本的 `.zip` 檔案
+            2. 解壓縮到任意位置
+            3. 執行 `BreezASR.exe`
+            4. 首次執行會自動下載語言模型（約 1.5GB，需數分鐘）
+            
+            ## 💻 系統需求
+            
+            - **macOS**: 12 Monterey 或更新版本
+            - **Windows**: 10/11 (64-bit)
+            - **RAM**: 至少 4GB（建議 8GB）
+            - **儲存空間**: 至少 3GB（用於模型快取）
+            
+            ## 🐛 已知問題
+            
+            - macOS 首次啟動可能較慢（模型載入）
+            - Windows Defender 可能誤報（請加入白名單）
+            
+            ---
+            
+            完整說明請參考 [README.md](https://github.com/${{ github.repository }})
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build success
+        run: echo "✅ Build completed for ${{ matrix.artifact_name }}"
