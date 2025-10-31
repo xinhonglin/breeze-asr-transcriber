@@ -1,0 +1,16 @@
+[project]
+name = "breeze-asr-transcriber"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "customtkinter>=5.2.2",
+    "numpy>=2.3.4",
+    "psutil>=7.1.2",
+    "soundfile>=0.13.1",
+    "torch>=2.9.0",
+    "torchaudio>=2.9.0",
+    "torchcodec>=0.8.1",
+    "transformers>=4.57.1",
+]
