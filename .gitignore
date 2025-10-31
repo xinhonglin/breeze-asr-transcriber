@@ -1,10 +1,24 @@
-# Python-generated files
+# Python
 __pycache__/
-*.py[oc]
-build/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
 dist/
+build/
 wheels/
-*.egg-info
+venv/
+.venv/
 
-# Virtual environments
-.venv
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# 系統
+.DS_Store
+Thumbs.db
+
+# 進度檔案
+*.progress.json

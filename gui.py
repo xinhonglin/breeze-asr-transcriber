@@ -22,8 +22,6 @@ class AudioConverterApp:
         self.is_converting = False
         self.conversion_thread = None
         self.current_process = None
-        self.conversion_script = "/Users/tommy/Scripts/python/breeze_asr_transcribe/breeze_asr_transcribe.py"
-        
         # 決定編碼方式（使用系統預設編碼，避免跨平台問題）
         self.encoding = sys.stdout.encoding or 'utf-8'
         

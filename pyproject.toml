@@ -1,9 +1,13 @@
 [project]
 name = "breeze-asr-transcriber"
 version = "0.1.0"
-description = "Add your description here"
+description = "Breeze-ASR-25 音檔轉逐字稿應用"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.11"
+authors = [
+    {name = "xinhonglin", email = "classiccrotchet@email.com"}
+]
+keywords = ["ASR", "transcription", "audio", "GUI"]
 dependencies = [
     "customtkinter>=5.2.2",
     "numpy>=2.3.4",
@@ -14,3 +18,6 @@ dependencies = [
     "torchcodec>=0.8.1",
     "transformers>=4.57.1",
 ]
+
+[tool.uv]
+python-version = "3.11" 
