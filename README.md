@@ -72,7 +72,7 @@ uv run python gui.py
 ## 常見問題
 
 ### Q: 首次執行很慢，是正常的嗎？
-**A**: 是的。首次執行會自動下載 ~1.5GB 的 Breeze-ASR-25 語言模型，下載時間取決於網速，通常需要 5-15 分鐘。模型會被快取到本機，後續執行無需重複下載。
+**A**: 是的。首次執行會自動下載 ~1.5GB 的 Breeze-ASR-25 語言模型，下載時間取決於網速，通常需要 5-15 分鐘。應用內會顯示「下載提示與進度條」，模型下載完成後會自動開始轉錄。模型會被快取到本機，後續執行無需重複下載。
 
 ### Q: 可以離線使用嗎？
 **A**: 可以。模型首次下載後會被快取，之後即使斷網也能使用。
@@ -91,6 +91,62 @@ uv run python gui.py
 
 ### Q: 可以串接到其他應用嗎？
 **A**: 可以。轉錄邏輯在 `transcribe.py` 中，你可以將其集成到其他 Python 專案。
+
+### Q: 如何刪除已下載的 Hugging Face 模型（清除快取）？
+> **注意**：刪除後下次使用會重新下載（約 1.5GB）。快取通常占用 **4-6GB**（包含模型本體約 2.9GB + hf-xet 下載快取約 2.9GB）。
+
+**預設快取位置**（若有自訂 `HF_HOME` 環境變數，則使用該路徑）
+- macOS：`~/.cache/huggingface`
+- Windows：`%USERPROFILE%\.cache\huggingface`
+
+**檢查實際快取大小**
+- macOS（Terminal）
+  ```bash
+  # 查看總用量
+  du -sh ~/.cache/huggingface
+  
+  # 查看各子資料夾用量
+  du -sh ~/.cache/huggingface/*
+  ```
+
+- Windows（PowerShell）
+  ```powershell
+  # 查看總用量（若有安裝 Git for Windows 的 du）
+  du -sh "$env:USERPROFILE\.cache\huggingface"
+  
+  # 或查看資料夾屬性
+  Get-ChildItem "$env:USERPROFILE\.cache\huggingface" -Recurse | 
+    Measure-Object -Property Length -Sum
+  ```
+
+**清理快取**
+- macOS（Terminal）
+  ```bash
+  # 只刪除 hf-xet 下載快取（釋放約一半空間，推薦）
+  rm -rf ~/.cache/huggingface/xet
+  
+  # 只刪除模型快取（hub 子資料夾）
+  rm -rf ~/.cache/huggingface/hub
+  
+  # 刪除全部 Hugging Face 快取（包含所有模型）
+  rm -rf ~/.cache/huggingface
+  ```
+
+- Windows（PowerShell）
+  ```powershell
+  # 只刪除 hf-xet 下載快取（釋放約一半空間，推薦）
+  Remove-Item -Recurse -Force "$env:USERPROFILE\.cache\huggingface\xet"
+  
+  # 只刪除模型快取（hub 子資料夾）
+  Remove-Item -Recurse -Force "$env:USERPROFILE\.cache\huggingface\hub"
+  
+  # 刪除全部 Hugging Face 快取（包含所有模型）
+  Remove-Item -Recurse -Force "$env:USERPROFILE\.cache\huggingface"
+  ```
+
+**圖形介面操作**
+- macOS：Finder → 前往 → 前往資料夾… → 輸入 `~/.cache/huggingface` → 刪除資料夾或子資料夾
+- Windows：檔案總管地址列輸入 `%USERPROFILE%\.cache\huggingface` → 刪除資料夾或子資料夾
 
 ## 開發
 
