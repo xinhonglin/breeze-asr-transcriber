@@ -15,12 +15,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # macOS Intel (x86_64)
-          - os: macos-13
-            python-version: '3.11'
-            artifact_name: BreezASR-macOS-Intel
-            arch: x86_64
-            
           # macOS Apple Silicon (ARM64)
           - os: macos-14
             python-version: '3.11'
@@ -172,8 +166,7 @@ jobs:
             
             ## Download Instructions
             
-            - **macOS Intel**: For Intel-based Macs (x86_64)
-            - **macOS ARM64**: For Apple Silicon Macs (M1/M2/M3/M4)
+            - **macOS (Apple Silicon)**: For M1/M2/M3/M4 Macs
             - **Windows**: For Windows 10/11 (64-bit)
             
             ## Installation Steps

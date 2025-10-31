@@ -15,7 +15,7 @@
 
 前往 [Release 頁面](https://github.com/xinhonglin/breeze-asr-transcriber/releases) 下載對應平台的可執行檔：
 
-- **macOS**: `BreezASR` - 支援 M1/M2 及 Intel Mac
+- **macOS**: `BreezASR` - 支援 Apple Silicon (M1/M2/M3/M4)
 - **Windows**: `BreezASR.exe` - 支援 Windows 11 及以上
 
 ## 快速開始
