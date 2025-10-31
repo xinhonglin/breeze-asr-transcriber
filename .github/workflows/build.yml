@@ -60,44 +60,41 @@ jobs:
       - name: Build macOS .app bundle
         if: runner.os == 'macOS'
         run: |
-          uv run pyinstaller \
-            --name "BreezASR" \
-            --windowed \
-            --onedir \
-            --icon=icon.icns \
-            --hidden-import=torch \
-            --hidden-import=torchaudio \
-            --hidden-import=transformers \
-            --hidden-import=customtkinter \
-            --hidden-import=huggingface_hub \
-            --collect-all customtkinter \
-            --collect-submodules torch \
-            --add-data "transcribe.py:." \
-            --osx-bundle-identifier "com.github.xinhonglin.breezasr" \
-            --noconfirm \
-            gui.py
+          uv run pyinstaller BreezASR.spec
 
       - name: Verify macOS build
         if: runner.os == 'macOS'
         run: |
-          ls -lh dist/
+          echo "=== 列出所有打包檔案 ==="
+          find dist/BreezASR.app -type f -name "*.py" -o -name "BreezASR" | head -20
           
-          # 驗證關鍵檔案存在
+          echo ""
+          echo "=== 驗證關鍵檔案 ==="
+          
+          # 驗證 .app bundle
           if [ ! -d "dist/BreezASR.app" ]; then
             echo "Error: BreezASR.app not found!"
             exit 1
           fi
+          echo "✓ BreezASR.app found"
+          
+          # 驗證執行檔
           if [ ! -f "dist/BreezASR.app/Contents/MacOS/BreezASR" ]; then
             echo "Error: BreezASR executable not found!"
             exit 1
           fi
-          if [ ! -f "dist/BreezASR.app/Contents/MacOS/transcribe.py" ]; then
-            echo "Error: transcribe.py not found!"
+          echo "✓ BreezASR executable found"
+          
+          # 驗證 transcribe 模組（可能在多個位置）
+          if find dist/BreezASR.app -name "transcribe.py" -o -name "transcribe.pyc" | grep -q .; then
+            echo "✓ transcribe module found:"
+            find dist/BreezASR.app -name "transcribe.py" -o -name "transcribe.pyc"
+          else
+            echo "Error: transcribe module not found!"
             exit 1
           fi
           
-          echo "✓ BreezASR.app has been generated"
-          echo "✓ transcribe.py is bundled"
+          echo ""
           du -sh dist/BreezASR.app
 
       - name: Package macOS app
