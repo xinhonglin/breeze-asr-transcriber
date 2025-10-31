@@ -113,40 +113,38 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          uv run pyinstaller `
-            --name "BreezASR" `
-            --windowed `
-            --onedir `
-            --icon=icon.ico `
-            --hidden-import=torch `
-            --hidden-import=torchaudio `
-            --hidden-import=transformers `
-            --hidden-import=customtkinter `
-            --hidden-import=huggingface_hub `
-            --collect-all customtkinter `
-            --collect-submodules torch `
-            --add-data "transcribe.py;." `
-            --noconfirm `
-            gui.py
+          # 使用統一的 .spec 檔案打包（支援跨平台）
+          uv run pyinstaller BreezASR.spec
 
       - name: Verify Windows build
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          Get-ChildItem dist\ -Recurse | Select-Object Name, Length
+          Write-Output "=== 列出所有打包檔案 ==="
+          Get-ChildItem dist\ -Recurse | Select-Object FullName, Length | Format-Table -AutoSize
           
-          # 驗證關鍵檔案存在
+          Write-Output "`n=== 驗證關鍵檔案 ==="
+          
+          # 驗證執行檔
           if (-not (Test-Path "dist\BreezASR\BreezASR.exe")) {
             Write-Error "BreezASR.exe not found!"
             exit 1
           }
-          if (-not (Test-Path "dist\BreezASR\transcribe.py")) {
-            Write-Error "transcribe.py not found!"
+          Write-Output "✓ BreezASR.exe found"
+          
+          # 驗證 transcribe 模組（可能是 .py 或 .pyc）
+          Write-Output "`n搜尋 transcribe 模組..."
+          $transcribeFiles = Get-ChildItem -Path "dist\BreezASR" -Recurse -Filter "transcribe.*" -ErrorAction SilentlyContinue
+          
+          if ($transcribeFiles) {
+            Write-Output "✓ transcribe 模組已打包:"
+            $transcribeFiles | ForEach-Object { Write-Output "  - $($_.FullName)" }
+          } else {
+            Write-Error "transcribe 模組未找到！"
+            Write-Output "`n嘗試搜尋所有 Python 檔案..."
+            Get-ChildItem -Path "dist\BreezASR" -Recurse -Include "*.py","*.pyc" | Select-Object FullName
             exit 1
           }
-          
-          Write-Output "✓ BreezASR.exe has been generated"
-          Write-Output "✓ transcribe.py is bundled"
 
       - name: Package Windows app
         if: runner.os == 'Windows'
