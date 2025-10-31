@@ -199,6 +199,11 @@ def check_system_requirements():
         print("⚠ 可用記憶體低於 4GB")
 
 def save_progress_json(prog_path, data):
+    # 確保父目錄存在（Windows 可能需要）
+    parent_dir = os.path.dirname(prog_path)
+    if parent_dir and not os.path.exists(parent_dir):
+        os.makedirs(parent_dir, exist_ok=True)
+    
     with open(prog_path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
@@ -346,6 +351,12 @@ def main(input_audio, output_text, non_interactive=False, auto_clean_progress=Fa
         f"**總耗時：** {total_hms}（{total_elapsed:.1f} 秒）",
         "---\n"
     ]
+    
+    # 確保輸出檔案的父目錄存在
+    output_dir = os.path.dirname(output_text)
+    if output_dir and not os.path.exists(output_dir):
+        os.makedirs(output_dir, exist_ok=True)
+    
     with open(output_text, "w", encoding="utf-8") as out_f:
         out_f.write("\n".join(header) + "\n")
         out_f.write(merged_text)

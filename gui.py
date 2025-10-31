@@ -209,12 +209,58 @@ class AudioConverterApp:
         self.conversion_thread = threading.Thread(target=self._run_conversion, daemon=False)
         self.conversion_thread.start()
     
+    def _get_desktop_path(self):
+        """
+        智慧偵測桌面路徑，支援：
+        - 標準桌面: ~/Desktop
+        - OneDrive 桌面: ~/OneDrive/桌面 或 ~/OneDrive/Desktop
+        - 中文桌面: ~/桌面
+        """
+        # 候選路徑列表（按優先順序）
+        candidates = [
+            Path.home() / "Desktop",                    # 標準英文桌面
+            Path.home() / "OneDrive" / "桌面",          # OneDrive 中文桌面
+            Path.home() / "OneDrive" / "Desktop",       # OneDrive 英文桌面
+            Path.home() / "OneDrive - Personal" / "桌面",  # OneDrive Personal 中文
+            Path.home() / "OneDrive - Personal" / "Desktop",  # OneDrive Personal 英文
+            Path.home() / "桌面",                       # 中文系統桌面
+        ]
+        
+        # 在 Windows 上，嘗試從 Registry 讀取真實桌面路徑
+        if platform.system() == "Windows":
+            try:
+                import winreg
+                key = winreg.OpenKey(
+                    winreg.HKEY_CURRENT_USER,
+                    r"Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders"
+                )
+                desktop_path, _ = winreg.QueryValueEx(key, "Desktop")
+                winreg.CloseKey(key)
+                desktop_from_registry = Path(desktop_path)
+                if desktop_from_registry.exists():
+                    return desktop_from_registry
+            except Exception:
+                pass  # Registry 讀取失敗，繼續使用候選路徑
+        
+        # 尋找第一個存在的桌面路徑
+        for path in candidates:
+            if path.exists():
+                return path
+        
+        # 如果都不存在，回退到標準路徑並建立
+        default_path = Path.home() / "Desktop"
+        default_path.mkdir(parents=True, exist_ok=True)
+        return default_path
+    
     def _run_conversion(self):
         """在背景線程執行轉換腳本"""
         try:
             # 生成輸出檔案路徑（放在使用者的桌面）
             input_path = Path(self.selected_file_path)
-            desktop_path = Path.home() / "Desktop"
+            
+            # 智慧偵測桌面路徑（支援 OneDrive 同步桌面）
+            desktop_path = self._get_desktop_path()
+            
             output_path = desktop_path / f"{input_path.stem}_transcript.txt"
             
             # 如果輸出檔案已存在，先刪除（避免覆蓋提示卡住）
