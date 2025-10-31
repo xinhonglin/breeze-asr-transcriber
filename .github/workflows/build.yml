@@ -54,7 +54,7 @@ jobs:
 
       - name: Verify installation
         run: |
-          uv run python -c "import torch, transformers, customtkinter; print('✓ All dependencies installed')"
+          uv run python -c "import torch, transformers, customtkinter; print('All dependencies installed successfully')"
 
       # ===== macOS 構建 =====
       - name: Build macOS .app bundle
@@ -81,14 +81,14 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           ls -lh dist/
-          echo "📦 BreezASR.app 已生成"
+          echo "BreezASR.app has been generated"
           du -sh dist/BreezASR.app
 
       - name: Package macOS app
         if: runner.os == 'macOS'
         run: |
           cd dist
-          zip -r "../BreezASR-${{ matrix.artifact_name }}.zip" BreezASR.app
+          zip -r -y "../BreezASR-${{ matrix.artifact_name }}.zip" BreezASR.app
           cd ..
           ls -lh BreezASR-*.zip
 
@@ -118,7 +118,7 @@ jobs:
         shell: pwsh
         run: |
           Get-ChildItem dist\ -Recurse | Select-Object Name, Length
-          Write-Host "📦 BreezASR.exe 已生成"
+          Write-Output "BreezASR.exe has been generated"
 
       - name: Package Windows app
         if: runner.os == 'Windows'
@@ -134,7 +134,7 @@ jobs:
           name: ${{ matrix.artifact_name }}
           path: BreezASR-${{ matrix.artifact_name }}.zip
           retention-days: 30
-          compression-level: 0  # 已經是 zip，不需要再壓縮
+          compression-level: 0
 
       # ===== 發布 Release =====
       - name: Create GitHub Release
@@ -145,45 +145,46 @@ jobs:
           draft: false
           prerelease: false
           body: |
-            # 🎙️ Breez ASR Transcriber ${{ github.ref_name }}
+            # Breez ASR Transcriber ${{ github.ref_name }}
             
-            ## 📥 下載說明
+            ## Download Instructions
             
-            - **macOS Intel**: 適用於 Intel 晶片 Mac (x86_64)
-            - **macOS ARM64**: 適用於 Apple Silicon Mac (M1/M2/M3/M4)
-            - **Windows**: 適用於 Windows 10/11 (64-bit)
+            - **macOS Intel**: For Intel-based Macs (x86_64)
+            - **macOS ARM64**: For Apple Silicon Macs (M1/M2/M3/M4)
+            - **Windows**: For Windows 10/11 (64-bit)
             
-            ## 🚀 安裝步驟
+            ## Installation Steps
             
             ### macOS
-            1. 下載對應版本的 `.zip` 檔案
-            2. 解壓縮後將 `BreezASR.app` 拖曳到「應用程式」資料夾
-            3. 首次開啟時，右鍵點擊選擇「打開」（繞過 Gatekeeper）
-            4. 首次執行會自動下載語言模型（約 1.5GB，需數分鐘）
+            1. Download the appropriate `.zip` file
+            2. Extract and drag `BreezASR.app` to Applications folder
+            3. Right-click and select "Open" on first launch (bypass Gatekeeper)
+            4. First run will download language models (~1.5GB, takes a few minutes)
             
             ### Windows
-            1. 下載 Windows 版本的 `.zip` 檔案
-            2. 解壓縮到任意位置
-            3. 執行 `BreezASR.exe`
-            4. 首次執行會自動下載語言模型（約 1.5GB，需數分鐘）
+            1. Download the Windows `.zip` file
+            2. Extract to any location
+            3. Run `BreezASR.exe` inside the BreezASR folder
+            4. First run will download language models (~1.5GB, takes a few minutes)
             
-            ## 💻 系統需求
+            ## System Requirements
             
-            - **macOS**: 12 Monterey 或更新版本
+            - **macOS**: 12 Monterey or later
             - **Windows**: 10/11 (64-bit)
-            - **RAM**: 至少 4GB（建議 8GB）
-            - **儲存空間**: 至少 3GB（用於模型快取）
+            - **RAM**: At least 4GB (8GB recommended)
+            - **Storage**: At least 3GB (for model cache)
             
-            ## 🐛 已知問題
+            ## Known Issues
             
-            - macOS 首次啟動可能較慢（模型載入）
-            - Windows Defender 可能誤報（請加入白名單）
+            - macOS first launch may be slow (model loading)
+            - Windows Defender may flag as false positive (add to whitelist)
             
             ---
             
-            完整說明請參考 [README.md](https://github.com/${{ github.repository }})
+            Full documentation: [README.md](https://github.com/${{ github.repository }})
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build success
-        run: echo "✅ Build completed for ${{ matrix.artifact_name }}"
+        shell: bash
+        run: echo "Build completed successfully for ${{ matrix.artifact_name }}"

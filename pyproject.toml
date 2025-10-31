@@ -18,6 +18,3 @@ dependencies = [
     "torchcodec>=0.8.1",
     "transformers>=4.57.1",
 ]
-
-[tool.uv]
-python-version = "3.11" 
