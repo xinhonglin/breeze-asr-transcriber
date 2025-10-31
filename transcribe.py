@@ -32,12 +32,21 @@ PROGRESS_FILE_SUFFIX = ".progress.json"
 # -----------------------------------
 
 def load_and_prepare(audio_path, target_sr=SR):
-    waveform, sr = torchaudio.load(audio_path)  # (channels, samples)
-    if waveform.shape[0] > 1:
-        waveform = waveform.mean(dim=0, keepdim=True)
+    # 使用 soundfile 替代 torchaudio.load 避免 torchcodec 依賴問題
+    data, sr = sf.read(audio_path, dtype='float32')
+    
+    # 轉為 tensor 處理
+    if data.ndim == 2:  # 多聲道
+        data = data.mean(axis=1)  # 轉為單聲道
+    
+    # 重採樣（如需要）
     if sr != target_sr:
+        waveform = torch.from_numpy(data).unsqueeze(0)  # (1, samples)
         waveform = torchaudio.transforms.Resample(sr, target_sr)(waveform)
-    arr = waveform.squeeze(0).numpy().astype(np.float32)
+        arr = waveform.squeeze(0).numpy().astype(np.float32)
+    else:
+        arr = data.astype(np.float32)
+    
     return arr, target_sr
 
 def compute_slices_with_overlap(total_samples, sr, chunk_seconds=CHUNK_SECONDS, overlap_seconds=OVERLAP_SECONDS):

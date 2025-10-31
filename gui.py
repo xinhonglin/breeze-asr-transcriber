@@ -14,7 +14,7 @@ class AudioConverterApp:
     def __init__(self):
         self.app = CTk()
         self.app.geometry("700x600")
-        self.app.title("小 寶 的 秘 密 武 器")
+        self.app.title("音檔轉逐字稿")
         set_appearance_mode("Dark")
         
         # 應用程式狀態
@@ -224,56 +224,121 @@ class AudioConverterApp:
                 except Exception as e:
                     self.app.after(0, self.append_output, f"⚠ 無法刪除舊檔案: {str(e)}\n\n")
 
-            # 使用當前 Python 環境
-            command = [
-                sys.executable,
-                str(Path(__file__).parent / "transcribe.py"),
-                str(Path(self.selected_file_path).absolute()),
-                str(output_path),
-                "--non-interactive",
-                "--auto-clean-progress",
-                "--suppress-warnings"
-            ]
-            
-            self.app.after(0, self.append_output, f"執行命令: {' '.join(command)}\n\n")
-
-            # 強制 Python 不使用緩衝
-            env = os.environ.copy()
-            env['PYTHONUNBUFFERED'] = '1'
-            
-            # 合併 stderr 到 stdout，使用阻塞式讀取（在背景執行緒中不影響 GUI）
-            self.current_process = subprocess.Popen(
-                command,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=1,  # 行緩衝
-                encoding=self.encoding,
-                errors='replace',
-                env=env
-            )
-            
-            # 直接在背景執行緒中逐行讀取（阻塞式，但不影響 GUI）
-            try:
-                for line in iter(self.current_process.stdout.readline, ''):
-                    if line:
-                        # 使用 after() 安全地更新 GUI
-                        self.app.after(0, self.append_output, line)
-            except Exception as e:
-                self.app.after(0, self.append_output, f"\n⚠ 讀取輸出時發生錯誤: {str(e)}\n")
-            finally:
-                # 確保關閉 stdout
+            # ✅ 打包環境：直接導入 transcribe 模組執行（避免系統 Python 依賴問題）
+            if getattr(sys, 'frozen', False):
+                self.app.after(0, self.append_output, "使用打包環境執行轉錄...\n\n")
+                
+                # 使用內嵌的 transcribe 模組（PyInstaller 已打包所有依賴）
                 try:
-                    self.current_process.stdout.close()
-                except Exception:
-                    pass
-            
-            # 等待進程結束
-            return_code = self.current_process.wait()
+                    import transcribe as transcribe_module
+                    
+                    # 重定向 stdout 來捕捉輸出
+                    import io
+                    from contextlib import redirect_stdout
+                    
+                    class GUIWriter(io.StringIO):
+                        def __init__(self, callback):
+                            super().__init__()
+                            self.callback = callback
+                            self.buffer = ""
+                        
+                        def write(self, text):
+                            self.buffer += text
+                            # 當遇到換行時，輸出整行
+                            if '\n' in self.buffer:
+                                lines = self.buffer.split('\n')
+                                for line in lines[:-1]:
+                                    if line.strip():
+                                        self.callback(line + '\n')
+                                self.buffer = lines[-1]
+                            return len(text)
+                        
+                        def flush(self):
+                            if self.buffer.strip():
+                                self.callback(self.buffer + '\n')
+                                self.buffer = ""
+                    
+                    # 創建輸出捕捉器
+                    output_writer = GUIWriter(lambda msg: self.app.after(0, self.append_output, msg))
+                    
+                    # 執行轉錄（在背景線程中，stdout 已重定向）
+                    with redirect_stdout(output_writer):
+                        transcribe_module.main(
+                            input_audio=str(Path(self.selected_file_path).absolute()),
+                            output_text=str(output_path),
+                            non_interactive=True,
+                            auto_clean_progress=True,
+                            suppress_warnings=True
+                        )
+                    
+                    # 確保剩餘緩衝區內容輸出
+                    output_writer.flush()
+                    return_code = 0
+                    
+                except Exception as e:
+                    import traceback
+                    error_detail = traceback.format_exc()
+                    self.app.after(0, self.append_output, f"\n❌ 轉錄過程發生錯誤:\n{error_detail}\n")
+                    return_code = 1
+            else:
+                # 開發環境：使用 subprocess
+                transcribe_script = Path(__file__).parent / "transcribe.py"
+                
+                if not transcribe_script.exists():
+                    error_msg = f"❌ 找不到轉錄腳本: {transcribe_script}\n"
+                    self.app.after(0, self.append_output, error_msg)
+                    self.app.after(0, self.update_status, "❌ 找不到轉錄腳本")
+                    return
+                
+                command = [
+                    sys.executable,
+                    str(transcribe_script),
+                    str(Path(self.selected_file_path).absolute()),
+                    str(output_path),
+                    "--non-interactive",
+                    "--auto-clean-progress",
+                    "--suppress-warnings"
+                ]
+                
+                self.app.after(0, self.append_output, f"執行命令: {' '.join(command)}\n\n")
+
+                # 強制 Python 不使用緩衝
+                env = os.environ.copy()
+                env['PYTHONUNBUFFERED'] = '1'
+                
+                # 合併 stderr 到 stdout，使用阻塞式讀取（在背景執行緒中不影響 GUI）
+                self.current_process = subprocess.Popen(
+                    command,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,  # 行緩衝
+                    encoding=self.encoding,
+                    errors='replace',
+                    env=env
+                )
+                
+                # 直接在背景執行緒中逐行讀取（阻塞式，但不影響 GUI）
+                try:
+                    for line in iter(self.current_process.stdout.readline, ''):
+                        if line:
+                            # 使用 after() 安全地更新 GUI
+                            self.app.after(0, self.append_output, line)
+                except Exception as e:
+                    self.app.after(0, self.append_output, f"\n⚠ 讀取輸出時發生錯誤: {str(e)}\n")
+                finally:
+                    # 確保關閉 stdout
+                    try:
+                        self.current_process.stdout.close()
+                    except Exception:
+                        pass
+                
+                # 等待進程結束
+                return_code = self.current_process.wait()
             
             # 顯示完成訊息
             if return_code == 0:
-                self.app.after(0, self.append_output, "\n✓ 轉換完成！\n")
+                self.app.after(0, self.append_output, f"\n✓ 轉換完成！\n輸出檔案: {output_path}\n")
                 self.app.after(0, self.update_status, "✓ 轉換完成")
             else:
                 self.app.after(0, self.append_output, f"\n✗ 轉換失敗（錯誤代碼: {return_code}）\n")

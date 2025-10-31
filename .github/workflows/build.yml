@@ -81,7 +81,23 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           ls -lh dist/
-          echo "BreezASR.app has been generated"
+          
+          # 驗證關鍵檔案存在
+          if [ ! -d "dist/BreezASR.app" ]; then
+            echo "Error: BreezASR.app not found!"
+            exit 1
+          fi
+          if [ ! -f "dist/BreezASR.app/Contents/MacOS/BreezASR" ]; then
+            echo "Error: BreezASR executable not found!"
+            exit 1
+          fi
+          if [ ! -f "dist/BreezASR.app/Contents/MacOS/transcribe.py" ]; then
+            echo "Error: transcribe.py not found!"
+            exit 1
+          fi
+          
+          echo "✓ BreezASR.app has been generated"
+          echo "✓ transcribe.py is bundled"
           du -sh dist/BreezASR.app
 
       - name: Package macOS app
@@ -118,7 +134,19 @@ jobs:
         shell: pwsh
         run: |
           Get-ChildItem dist\ -Recurse | Select-Object Name, Length
-          Write-Output "BreezASR.exe has been generated"
+          
+          # 驗證關鍵檔案存在
+          if (-not (Test-Path "dist\BreezASR\BreezASR.exe")) {
+            Write-Error "BreezASR.exe not found!"
+            exit 1
+          }
+          if (-not (Test-Path "dist\BreezASR\transcribe.py")) {
+            Write-Error "transcribe.py not found!"
+            exit 1
+          }
+          
+          Write-Output "✓ BreezASR.exe has been generated"
+          Write-Output "✓ transcribe.py is bundled"
 
       - name: Package Windows app
         if: runner.os == 'Windows'
