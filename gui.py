@@ -23,7 +23,8 @@ class AudioConverterApp:
         self.conversion_thread = None
         self.current_process = None
         # 決定編碼方式（使用系統預設編碼，避免跨平台問題）
-        self.encoding = sys.stdout.encoding or 'utf-8'
+        # 在 Windows 打包環境中 sys.stdout 可能是 None
+        self.encoding = getattr(sys.stdout, 'encoding', None) or 'utf-8'
         
         self.setup_window()
         self.create_widgets()
