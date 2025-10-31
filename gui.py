@@ -8,6 +8,14 @@ import os
 import sys
 import platform
 from datetime import datetime
+from typing import Optional
+
+# 可選：首次使用時提示下載模型
+try:
+    from huggingface_hub import snapshot_download
+    HF_AVAILABLE = True
+except Exception:
+    HF_AVAILABLE = False
 
 
 class AudioConverterApp:
@@ -105,6 +113,28 @@ class AudioConverterApp:
             text_color="#cccccc"
         )
         self.status_label.pack(pady=(0, 10))
+
+        # 首次模型下載提示（預設隱藏）
+        self.model_frame = CTkFrame(main_container)
+        self.model_frame.pack(fill="x", pady=(0, 10))
+        self.model_frame.pack_forget()
+
+        self.model_label = CTkLabel(
+            self.model_frame,
+            text="",
+            font=("微軟正黑體", 11),
+            text_color="#dddddd",
+            anchor="w",
+            justify="left"
+        )
+        self.model_label.pack(anchor="w", pady=(0, 6))
+
+        self.model_progress = CTkProgressBar(
+            self.model_frame,
+            mode="indeterminate",
+            width=400
+        )
+        self.model_progress.pack(anchor="w")
         
         # 輸出區域容器
         output_label = CTkLabel(
@@ -271,6 +301,9 @@ class AudioConverterApp:
                 except Exception as e:
                     self.app.after(0, self.append_output, f"⚠ 無法刪除舊檔案: {str(e)}\n\n")
 
+            # 確保首次使用時模型已下載（以避免使用者無感的長時間等待）
+            self._ensure_model_downloaded_with_ui()
+
             # ✅ 打包環境：直接導入 transcribe 模組執行（避免系統 Python 依賴問題）
             if getattr(sys, 'frozen', False):
                 self.app.after(0, self.append_output, "使用打包環境執行轉錄...\n\n")
@@ -406,6 +439,57 @@ class AudioConverterApp:
                 self.is_converting = False
                 self.current_process = None
                 self.app.after(0, self.update_button_states, True, True, False)
+
+    # ===== 模型下載提示相關 =====
+    def _show_model_download_ui(self, message: str):
+        """顯示模型下載提示與不定進度條"""
+        def _show():
+            self.model_label.configure(text=message)
+            try:
+                self.model_progress.stop()
+            except Exception:
+                pass
+            self.model_frame.pack(fill="x", pady=(0, 10))
+            self.model_progress.start()
+        self.app.after(0, _show)
+
+    def _hide_model_download_ui(self):
+        """隱藏模型下載提示"""
+        def _hide():
+            try:
+                self.model_progress.stop()
+            except Exception:
+                pass
+            self.model_frame.pack_forget()
+        self.app.after(0, _hide)
+
+    def _ensure_model_downloaded_with_ui(self):
+        """若本機快取未有模型，顯示提示並進行下載。"""
+        if not HF_AVAILABLE:
+            # 無 huggingface_hub，可跳過（由 transformers 自行處理下載）
+            self.app.after(0, self.append_output, "ⓘ 無法偵測 huggingface_hub，將直接載入模型，首次可能較久…\n")
+            return
+
+        REPO_ID = "MediaTek-Research/Breeze-ASR-25"
+
+        # 先檢查是否已存在（純本機檢查，不觸發下載）
+        try:
+            snapshot_download(REPO_ID, local_files_only=True)
+            return  # 已下載，直接返回
+        except Exception:
+            pass
+
+        # 顯示提示並下載
+        self._show_model_download_ui("⬇️ 首次使用需下載模型（~1.5GB），請保持應用開啟，過程可能需要數分鐘…")
+        self.app.after(0, self.append_output, "開始下載 Breeze-ASR-25 模型檔至快取…\n")
+        try:
+            # 使用預設進度（tqdm 列印到 stdout），此處提供不定進度條即可
+            snapshot_download(REPO_ID)
+            self.app.after(0, self.append_output, "✓ 模型下載完成，繼續轉錄…\n\n")
+        except Exception as e:
+            self.app.after(0, self.append_output, f"⚠ 模型下載時發生例外：{e}\n將嘗試由 transformers 自動處理（可能較久）\n")
+        finally:
+            self._hide_model_download_ui()
     
     def _validate_file(self, file_path):
         """驗證檔案是否存在且可讀"""
