@@ -22,6 +22,7 @@ import argparse
 import gc
 from typing import Optional
 import warnings
+import platform
 
 # ---------- Configurable ----------
 CHUNK_SECONDS = 30        # 每段長度（秒）
@@ -258,29 +259,33 @@ def main(input_audio, output_text, non_interactive=False, auto_clean_progress=Fa
     total_start = time.time()
     check_system_requirements()
     print("載入 Breeze-ASR-25 模型與處理器...")
-    
+
     # 排除訓練檢查點，只載入推論需要的檔案（避免下載 15GB 訓練檔案）
-    # 注意：from_pretrained 不支援 ignore_patterns，需先用 snapshot_download 過濾
+    # 注意：from_pretrained 不支援 ignore_patterns，需先用 snapshot_download 過濾（非 Windows）
     inference_ignore_patterns = [
-        "*.bin",              # 排除 optimizer.bin, scheduler.bin, trainer_state.bin 等
-        "*.pkl",              # 排除 random_states_*.pkl 等訓練狀態
-        "checkpoint-*",       # 排除中間檢查點資料夾
-        "*.ckpt",             # 排除 PyTorch Lightning 檢查點
-        "*.pth",              # 排除其他 PyTorch 檢查點
-        "*.pt",               # 排除 PyTorch 權重檔（whisper-github/*.pt 等）
-        "whisper-github/*",   # 排除 whisper-github 子資料夾（含舊格式權重 8.6GB）
+        "*.bin",
+        "*.pkl",
+        "checkpoint-*",
+        "*.ckpt",
+        "*.pth",
+        "*.pt",
+        "whisper-github/*",
     ]
-    
-    # 先確保模型已下載（使用 snapshot_download 過濾訓練檔案）
-    try:
-        from huggingface_hub import snapshot_download
-        snapshot_download(
-            "MediaTek-Research/Breeze-ASR-25",
-            ignore_patterns=inference_ignore_patterns,
-            local_files_only=False
-        )
-    except Exception as e:
-        print(f"⚠ snapshot_download 失敗：{e}，改用 from_pretrained 直接下載（可能包含訓練檔案）")
+
+    is_windows = (platform.system() == "Windows")
+    if not is_windows:
+        try:
+            from huggingface_hub import snapshot_download
+            snapshot_download(
+                "MediaTek-Research/Breeze-ASR-25",
+                ignore_patterns=inference_ignore_patterns,
+                local_files_only=False
+            )
+        except Exception as e:
+            print(f"⚠ 預抓取模型（忽略訓練檔）失敗：{e}，改用 transformers 直接載入。")
+    else:
+        # Windows 上避免 snapshot_download 以免觸發符號連結/硬連結權限問題（WinError 1314）
+        print("ⓘ Windows：由 transformers 自行下載模型檔（首次可能需較久）。")
     
     processor = WhisperProcessor.from_pretrained("MediaTek-Research/Breeze-ASR-25")
     device = torch.device("mps" if (torch.backends.mps.is_available() and torch.backends.mps.is_built()) else "cpu")
