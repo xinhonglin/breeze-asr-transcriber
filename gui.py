@@ -471,20 +471,30 @@ class AudioConverterApp:
             return
 
         REPO_ID = "MediaTek-Research/Breeze-ASR-25"
+        
+        # 排除訓練檢查點，只下載推論需要的檔案（避免下載 15GB 訓練檔案）
+        INFERENCE_IGNORE_PATTERNS = [
+            "*.bin",           # 排除 optimizer.bin, scheduler.bin, trainer_state.bin 等
+            "*.pkl",           # 排除 random_states_*.pkl 等訓練狀態
+            "checkpoint-*",    # 排除中間檢查點資料夾
+            "*.ckpt",          # 排除 PyTorch Lightning 檢查點
+            "*.pth",           # 排除其他 PyTorch 檢查點
+        ]
 
         # 先檢查是否已存在（純本機檢查，不觸發下載）
         try:
-            snapshot_download(REPO_ID, local_files_only=True)
+            snapshot_download(REPO_ID, local_files_only=True, ignore_patterns=INFERENCE_IGNORE_PATTERNS)
             return  # 已下載，直接返回
         except Exception:
             pass
 
         # 顯示提示並下載
-        self._show_model_download_ui("⬇️ 首次使用需下載模型（~1.5GB），請保持應用開啟，過程可能需要數分鐘…")
-        self.app.after(0, self.append_output, "開始下載 Breeze-ASR-25 模型檔至快取…\n")
+        self._show_model_download_ui("⬇️ 首次使用需下載模型（~3GB 推論檔案），請保持應用開啟，過程可能需要數分鐘…")
+        self.app.after(0, self.append_output, "開始下載 Breeze-ASR-25 模型檔至快取（僅推論檔案）…\n")
         try:
             # 使用預設進度（tqdm 列印到 stdout），此處提供不定進度條即可
-            snapshot_download(REPO_ID)
+            # 加上 ignore_patterns 避免下載訓練用的大檔案（optimizer.bin 等）
+            snapshot_download(REPO_ID, ignore_patterns=INFERENCE_IGNORE_PATTERNS)
             self.app.after(0, self.append_output, "✓ 模型下載完成，繼續轉錄…\n\n")
         except Exception as e:
             self.app.after(0, self.append_output, f"⚠ 模型下載時發生例外：{e}\n將嘗試由 transformers 自動處理（可能較久）\n")
