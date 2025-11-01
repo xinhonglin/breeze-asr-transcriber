@@ -301,8 +301,14 @@ class AudioConverterApp:
                 except Exception as e:
                     self.app.after(0, self.append_output, f"⚠ 無法刪除舊檔案: {str(e)}\n\n")
 
-            # 確保首次使用時模型已下載（以避免使用者無感的長時間等待）
-            self._ensure_model_downloaded_with_ui()
+            # 首次下載處理：
+            # - Windows：不主動觸發 snapshot_download，僅顯示提示，交由 transformers 自行處理（避免卡住問題）
+            # - 其他平台（macOS/Linux）：使用 snapshot_download 篩除訓練檔案，縮短與精簡下載
+            if platform.system() == "Windows":
+                self._show_model_download_ui("⬇️ 首次使用可能需下載模型（~3GB 推論檔案），請保持應用開啟，過程可能需要數分鐘…")
+            else:
+                # 非 Windows 平台採用預先抓取以避免額外大檔案
+                self._ensure_model_downloaded_with_ui()
 
             # ✅ 打包環境：直接導入 transcribe 模組執行（避免系統 Python 依賴問題）
             if getattr(sys, 'frozen', False):
@@ -439,6 +445,8 @@ class AudioConverterApp:
                 self.is_converting = False
                 self.current_process = None
                 self.app.after(0, self.update_button_states, True, True, False)
+            # 保險起見，無論成功或失敗都隱藏模型下載提示
+            self._hide_model_download_ui()
 
     # ===== 模型下載提示相關 =====
     def _show_model_download_ui(self, message: str):
@@ -542,6 +550,14 @@ class AudioConverterApp:
         self.output_text.insert("end", text)
         self.output_text.see("end")
         self.output_text.configure(state="disabled")
+        # 當偵測到模型已載入完成、進入正式轉錄流程時，自動隱藏首次下載提示
+        # transcribe.py 在模型載入後會印出下列訊息
+        #   - 「開始分段處理與轉錄（含重疊，流式切片）...」
+        try:
+            if "開始分段處理與轉錄" in text:
+                self._hide_model_download_ui()
+        except Exception:
+            pass
     
     def cancel_conversion(self):
         """取消正在進行的轉換"""
