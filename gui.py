@@ -474,11 +474,13 @@ class AudioConverterApp:
         
         # 排除訓練檢查點，只下載推論需要的檔案（避免下載 15GB 訓練檔案）
         INFERENCE_IGNORE_PATTERNS = [
-            "*.bin",           # 排除 optimizer.bin, scheduler.bin, trainer_state.bin 等
-            "*.pkl",           # 排除 random_states_*.pkl 等訓練狀態
-            "checkpoint-*",    # 排除中間檢查點資料夾
-            "*.ckpt",          # 排除 PyTorch Lightning 檢查點
-            "*.pth",           # 排除其他 PyTorch 檢查點
+            "*.bin",              # 排除 optimizer.bin, scheduler.bin, trainer_state.bin 等
+            "*.pkl",              # 排除 random_states_*.pkl 等訓練狀態
+            "checkpoint-*",       # 排除中間檢查點資料夾
+            "*.ckpt",             # 排除 PyTorch Lightning 檢查點
+            "*.pth",              # 排除其他 PyTorch 檢查點
+            "*.pt",               # 排除 PyTorch 權重檔（whisper-github/*.pt 等）
+            "whisper-github/*",   # 排除 whisper-github 子資料夾（含舊格式權重 8.6GB）
         ]
 
         # 先檢查是否已存在（純本機檢查，不觸發下載）

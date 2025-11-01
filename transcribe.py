@@ -260,24 +260,32 @@ def main(input_audio, output_text, non_interactive=False, auto_clean_progress=Fa
     print("載入 Breeze-ASR-25 模型與處理器...")
     
     # 排除訓練檢查點，只載入推論需要的檔案（避免下載 15GB 訓練檔案）
+    # 注意：from_pretrained 不支援 ignore_patterns，需先用 snapshot_download 過濾
     inference_ignore_patterns = [
-        "*.bin",           # 排除 optimizer.bin, scheduler.bin, trainer_state.bin 等
-        "*.pkl",           # 排除 random_states_*.pkl 等訓練狀態
-        "checkpoint-*",    # 排除中間檢查點資料夾
-        "*.ckpt",          # 排除 PyTorch Lightning 檢查點
-        "*.pth",           # 排除其他 PyTorch 檢查點
+        "*.bin",              # 排除 optimizer.bin, scheduler.bin, trainer_state.bin 等
+        "*.pkl",              # 排除 random_states_*.pkl 等訓練狀態
+        "checkpoint-*",       # 排除中間檢查點資料夾
+        "*.ckpt",             # 排除 PyTorch Lightning 檢查點
+        "*.pth",              # 排除其他 PyTorch 檢查點
+        "*.pt",               # 排除 PyTorch 權重檔（whisper-github/*.pt 等）
+        "whisper-github/*",   # 排除 whisper-github 子資料夾（含舊格式權重 8.6GB）
     ]
     
-    processor = WhisperProcessor.from_pretrained(
-        "MediaTek-Research/Breeze-ASR-25",
-        ignore_patterns=inference_ignore_patterns
-    )
+    # 先確保模型已下載（使用 snapshot_download 過濾訓練檔案）
+    try:
+        from huggingface_hub import snapshot_download
+        snapshot_download(
+            "MediaTek-Research/Breeze-ASR-25",
+            ignore_patterns=inference_ignore_patterns,
+            local_files_only=False
+        )
+    except Exception as e:
+        print(f"⚠ snapshot_download 失敗：{e}，改用 from_pretrained 直接下載（可能包含訓練檔案）")
+    
+    processor = WhisperProcessor.from_pretrained("MediaTek-Research/Breeze-ASR-25")
     device = torch.device("mps" if (torch.backends.mps.is_available() and torch.backends.mps.is_built()) else "cpu")
     print("使用裝置：", device)
-    model = WhisperForConditionalGeneration.from_pretrained(
-        "MediaTek-Research/Breeze-ASR-25",
-        ignore_patterns=inference_ignore_patterns
-    ).to(device).eval()
+    model = WhisperForConditionalGeneration.from_pretrained("MediaTek-Research/Breeze-ASR-25").to(device).eval()
     model_cpu = None  # 延遲初始化並重用 CPU 模型（僅在需要時）
     forced_decoder_ids = None
     if language:
@@ -325,11 +333,8 @@ def main(input_audio, output_text, non_interactive=False, auto_clean_progress=Fa
             print("在 MPS 上失敗或無結果，嘗試用 CPU 重試一次...")
             cpu_device = torch.device("cpu")
             if model_cpu is None:
-                # 延遲初始化 CPU 模型並重用（排除訓練檔案）
-                model_cpu = WhisperForConditionalGeneration.from_pretrained(
-                    "MediaTek-Research/Breeze-ASR-25",
-                    ignore_patterns=inference_ignore_patterns
-                ).to(cpu_device).eval()
+                # 延遲初始化 CPU 模型並重用（已由 snapshot_download 過濾訓練檔案）
+                model_cpu = WhisperForConditionalGeneration.from_pretrained("MediaTek-Research/Breeze-ASR-25").to(cpu_device).eval()
             txt_cpu, used_dev_cpu, elapsed_cpu = transcribe_chunk_generate(seg, processor, model_cpu, cpu_device, forced_decoder_ids=forced_decoder_ids)
             if txt_cpu.strip():
                 txt = txt_cpu
